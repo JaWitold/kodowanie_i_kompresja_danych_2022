@@ -85,15 +85,14 @@ class Huffman
     public function save(string $bitText, bool $binaryForm = true, bool $saveTofile = true, string $out = "out.txt") : void
     {
         $text = '';
-
         if($binaryForm) {
             $padding = 8 - (strlen($bitText) % 8);
             $result = str_pad(base_convert($padding, 10, 2), 8, '0', STR_PAD_LEFT) . $bitText;
             $result = str_pad($result, strlen($result) + $padding, '0', STR_PAD_RIGHT);
-            $len = strlen($result);
-            for ($i = 0; $i < $len; $i += 8) {
-                $text .= chr(base_convert(substr($result, 0, 8), 2, 10));
-                $result = substr($result, 8);
+            $result = str_split($result, 8);
+            $len = count($result);
+            foreach ($result as $byte) {
+                $text .= chr(bindec($byte));
             }
         } else {
             $text = $bitText;
