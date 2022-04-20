@@ -1,5 +1,5 @@
 <?php
-require_once "LZ77.php";
+require_once "JPEG_LS.php";
 require_once "Entropy.php";
 ini_set('memory_limit', '16G');
 
@@ -11,7 +11,6 @@ $fileNameIn = $argv[2];
 $fileNameOut = $argv[3];
 
 runLZ77($fileNameIn, $mode == "encode", $fileNameOut);
-runLZ77($fileNameOut, $mode != "encode", "decoded.txt");
 
 function runLZ77(string $fileName, bool $encode, string $outfile): void
 {
