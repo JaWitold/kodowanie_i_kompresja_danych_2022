@@ -12,7 +12,7 @@ $k = $argv[3] ?? 0;
 
 
 runCompressor($fileNameIn, $fileNameOut, $k, true);
-runCompressor($fileNameOut, "decompressed_" . $fileNameOut, $k, false);
+runCompressor($fileNameOut, $fileNameIn, $k, false);
 
 
 function runCompressor(string $fileNameIn, string $fileNameOut, int $k = 7, bool $encode = true): void
@@ -20,56 +20,47 @@ function runCompressor(string $fileNameIn, string $fileNameOut, int $k = 7, bool
     if ($encode) {
         encode($fileNameIn, $fileNameOut, $k);
     } else {
-        decode($fileNameIn, $fileNameOut);
+        decode($fileNameIn, "_" . $fileNameOut);
     }
 }
 
 function encode(string $fileNameIn, string $fileNameOut, int $k = 7): void
 {
-    $fileSize = filesize($fileNameIn);
-    $ff = fopen($fileNameIn, "rb");
-    $file = fread($ff, $fileSize);
-    fclose($ff);
-    $file = unpack(sprintf('C%d', $fileSize), $file);
-//    $file = array_map(function($item) {return chr($item);}, $file);
+    $file = readTheFile($fileNameIn);
     $width = $file[14] * 256 + $file[13];
     $height = $file[16] * 256 + $file[15];
-    $bitmap = compressor::parseBitmap((array)array_slice($file, 18, 3 * $width * $height), $width, $height);
-    $header = implode(array_map(function ($x) {return chr($x);}, (array)array_slice($file, 0, 18)));
-    $footer = implode(array_map(function ($x) {return chr($x);}, (array)array_slice($file, 18 + 3 * $width * $height)));
+    $bitmap = compressor::parseBitmap(array_slice($file, 18, 3 * $width * $height), $width, $height);
+    $header = implode(array_map(function ($x) {return chr($x);}, array_slice($file, 0, 18)));
+    $footer = implode(array_map(function ($x) {return chr($x);}, array_slice($file, 18 + 3 * $width * $height)));
 
-//    $bitmap = [[1, 1, 1], [1, 1, 1], [255, 255, 255], [255, 255, 255]];
+//    $bitmap = [[2, 0, 0], [2, 0, 0], [250, 250, 250], [2, 0, 0]];
 
     $quantized = compressor::uniformQuantization($bitmap, $k);
-    $diffs = compressor::differentialCoding($bitmap, $quantized);
-    $_diffs = compressor::uniformQuantization($diffs, $k);
-    $payload = compressor::bitmapToSave($_diffs);
+    $differences = compressor::differentialCoding($bitmap, $quantized);
+    $result = compressor::uniformQuantization($differences, $k);
 
-    file_put_contents("header_".$fileNameOut, print_r($header, true));
-    file_put_contents("footer_".$fileNameOut, print_r($footer, true));
-    file_put_contents($fileNameOut, print_r(trim($payload), true));
+    $payload = compressor::bitmapToBytes($result);
+    file_put_contents("out.tga", $header . $payload . $footer);
+
+    $decoded = compressor::differentialDecoding($result);
+
+    $payload = compressor::bitmapToBytes($decoded);
+    file_put_contents("out_d.tga", $header . $payload . $footer);
+
+    print_r($result);
+    print_r($decoded);
+
 }
 
 function decode(string $fileNameIn, string $fileNameOut): void
 {
-    $fileSize = filesize("header_" . $fileNameIn);
-    $ff = fopen("header_" . $fileNameIn, "rb");
+
+}
+
+function readTheFile(string $fileName) : array {
+    $fileSize = filesize($fileName);
+    $ff = fopen($fileName, "rb");
     $file = fread($ff, $fileSize);
     fclose($ff);
-    $file = unpack(sprintf('C%d', $fileSize), $file);
-//    $file = array_map(function($item) {return chr($item);}, $file);
-    $width = $file[14] * 256 + $file[13];
-    $height = $file[16] * 256 + $file[15];
-    $header = file_get_contents("header_" . $fileNameIn);
-    $footer = file_get_contents("footer_" . $fileNameIn);
-
-    $body = explode("\n", file_get_contents($fileNameIn));
-
-    $bitmap = compressor::parseBitmap($body, $width, $height);
-    $diffs = compressor::differentialDecoding($bitmap);
-
-    print_r($diffs);
-
-    $payload = compressor::bitmapToBytes($diffs);
-    file_put_contents($fileNameOut, print_r($header . $payload . $footer, true));
+    return unpack(sprintf('C%d', $fileSize), $file);
 }
